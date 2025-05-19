@@ -1,6 +1,6 @@
 SENSITIVE_KEYWORDS = [
-    "mental health", "anxiety", "ethnicity",
-    "sexual orientation", "religion", "disability", "political view"
+    "mental health", "anxiety", "ethnicity", "sexual orientation",
+    "religion", "disability", "political view"
 ]
 
 def check_inferences(data):
