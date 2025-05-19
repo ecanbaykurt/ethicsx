@@ -1,5 +1,4 @@
-def check_consent_violation(consent, actual):
-    consent_items = [c.strip().lower() for c in consent.split(",")]
-    actual_words = actual.lower().split()
-    violations = [item for item in actual_words if item not in consent_items and item in actual]
-    return list(set(violations))
+KNOWN_DATA_TYPES = ["email", "name", "location", "mood", "health", "ethnicity", "income", "face", "gps", "contact", "voice", "messages"]
+
+def check_consent_violation(consent_items, text):
+    return [item for item in KNOWN_DATA_TYPES if item in text.lower() and item not in consent_items]
