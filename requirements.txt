@@ -2,3 +2,5 @@ streamlit
 pandas
 openai
 scikit-learn
+beautifulsoup4
+requests
