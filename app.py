@@ -1,37 +1,59 @@
 import streamlit as st
 import pandas as pd
 
-from agents.consent_agent import check_consent_violation
-from agents.inference_agent import check_inferences
-from agents.bias_agent import detect_bias
-from agents.ethics_writer import generate_report
+# --- Minimal agent logic ---
+def check_consent_violation(consent, actual):
+    consent_items = [c.strip().lower() for c in consent.split(",")]
+    actual_items = [a.strip().lower() for a in actual.split(",")]
+    violations = [a for a in actual_items if a not in consent_items]
+    return violations
 
-st.set_page_config(page_title="EthixNet - AI Ethics Watchdog", layout="wide")
-st.title("🛡️ EthixNet: Multi-Agent AI Watchdog for Data Ethics")
+def check_inferences(data):
+    sensitive = ["mental health", "anxiety", "ethnicity", "religion", "sexuality"]
+    return [kw for kw in sensitive if kw in data.lower()]
 
-uploaded = st.file_uploader("Upload your CSV or select demo", type="csv")
+# --- Streamlit app ---
+st.set_page_config(page_title="EthixNet Audit", layout="centered")
+st.title("🛡️ EthixNet – AI Data Ethics Watchdog")
+st.write("Upload a CSV file with columns: `Website`, `User_Consent`, `Actual_Data_Used`")
+
+uploaded = st.file_uploader("📄 Upload Your Dataset", type="csv")
 
 if uploaded:
     df = pd.read_csv(uploaded)
 else:
-    df = pd.read_csv("data/sample_input.csv")
-    st.info("Using sample dataset.")
+    st.info("Using demo data...")
+    df = pd.DataFrame({
+        "Website": ["MindScan AI", "WellTrack", "CreditMatch"],
+        "User_Consent": [
+            "name, email, location",
+            "email, mood reports",
+            "name, income, credit score"
+        ],
+        "Actual_Data_Used": [
+            "name, email, location, sleep patterns, mental health status",
+            "email, mood reports, behavioral signals, anxiety score",
+            "name, income, credit score, ethnicity, purchase behavior"
+        ]
+    })
 
-for idx, row in df.iterrows():
-    st.subheader(f"🔍 Auditing: {row['Website']}")
-    violations = check_consent_violation(row["User_Consent"], row["Actual_Data_Used"])
-    inferred = check_inferences(row["Actual_Data_Used"])
+# --- Analysis ---
+for index, row in df.iterrows():
+    st.subheader(f"🔎 {row['Website']}")
+    consent_violations = check_consent_violation(row['User_Consent'], row['Actual_Data_Used'])
+    inferred_flags = check_inferences(row['Actual_Data_Used'])
 
-    # Optional BiasAgent
-    if "gender" in df.columns and "outcome" in df.columns:
-        bias_summary = detect_bias(df)
-    else:
-        bias_summary = "Insufficient data for bias detection"
+    if consent_violations:
+        st.error(f"❌ Consent Violations: {', '.join(consent_violations)}")
+    if inferred_flags:
+        st.warning(f"⚠️ Sensitive Inferences Detected: {', '.join(inferred_flags)}")
+    if not consent_violations and not inferred_flags:
+        st.success("✅ No violations detected.")
 
-    report = generate_report(row["Website"], violations, inferred, bias_summary)
-    st.markdown(report)
+    with st.expander("📜 Ethics Report"):
+        st.markdown(f"""
+        **Website:** {row['Website']}  
+        - **Consent Violations**: {', '.join(consent_violations) if consent_violations else 'None'}  
+        - **Inferred Traits**: {', '.join(inferred_flags) if inferred_flags else 'None'}
+        """)
 
-    if st.button(f"📄 Download Report for {row['Website']}", key=f"btn_{idx}"):
-        with open(f"reports/{row['Website']}_ethics_report.txt", "w") as f:
-            f.write(report)
-        st.success(f"Saved to reports/{row['Website']}_ethics_report.txt")
