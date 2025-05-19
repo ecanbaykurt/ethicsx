@@ -1,59 +1,44 @@
 import streamlit as st
-import pandas as pd
+import requests
+from bs4 import BeautifulSoup
 
-# --- Minimal agent logic ---
-def check_consent_violation(consent, actual):
-    consent_items = [c.strip().lower() for c in consent.split(",")]
-    actual_items = [a.strip().lower() for a in actual.split(",")]
-    violations = [a for a in actual_items if a not in consent_items]
-    return violations
+from agents.consent_agent import check_consent_violation
+from agents.inference_agent import check_inferences
+from agents.ethics_writer import generate_report
 
-def check_inferences(data):
-    sensitive = ["mental health", "anxiety", "ethnicity", "religion", "sexuality"]
-    return [kw for kw in sensitive if kw in data.lower()]
+st.set_page_config(page_title="EthixNet - Live Text Audit", layout="centered")
+st.title("🛡️ EthixNet – AI Data Ethics Watchdog (Text & URL)")
+st.write("Paste a privacy policy, or enter a URL for live audit:")
 
-# --- Streamlit app ---
-st.set_page_config(page_title="EthixNet Audit", layout="centered")
-st.title("🛡️ EthixNet – AI Data Ethics Watchdog")
-st.write("Upload a CSV file with columns: `Website`, `User_Consent`, `Actual_Data_Used`")
+input_method = st.radio("Choose Input Type", ["Paste Text", "Enter URL"])
 
-uploaded = st.file_uploader("📄 Upload Your Dataset", type="csv")
+text_input = ""
+if input_method == "Paste Text":
+    text_input = st.text_area("📄 Paste Privacy Policy or App Description Text", height=300)
+elif input_method == "Enter URL":
+    url = st.text_input("🌐 Enter URL")
+    if url:
+        try:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            text_input = soup.get_text()
+            st.success("Website scraped successfully!")
+        except Exception as e:
+            st.error(f"Failed to fetch content: {e}")
 
-if uploaded:
-    df = pd.read_csv(uploaded)
-else:
-    st.info("Using demo data...")
-    df = pd.DataFrame({
-        "Website": ["MindScan AI", "WellTrack", "CreditMatch"],
-        "User_Consent": [
-            "name, email, location",
-            "email, mood reports",
-            "name, income, credit score"
-        ],
-        "Actual_Data_Used": [
-            "name, email, location, sleep patterns, mental health status",
-            "email, mood reports, behavioral signals, anxiety score",
-            "name, income, credit score, ethnicity, purchase behavior"
-        ]
-    })
+if text_input:
+    st.subheader("🧠 EthixNet Report")
+    consent_claim = st.text_input("✍️ What was the declared consent? (comma-separated)", value="email, name, location")
 
-# --- Analysis ---
-for index, row in df.iterrows():
-    st.subheader(f"🔎 {row['Website']}")
-    consent_violations = check_consent_violation(row['User_Consent'], row['Actual_Data_Used'])
-    inferred_flags = check_inferences(row['Actual_Data_Used'])
+    violations = check_consent_violation(consent_claim, text_input)
+    inferred = check_inferences(text_input)
 
-    if consent_violations:
-        st.error(f"❌ Consent Violations: {', '.join(consent_violations)}")
-    if inferred_flags:
-        st.warning(f"⚠️ Sensitive Inferences Detected: {', '.join(inferred_flags)}")
-    if not consent_violations and not inferred_flags:
-        st.success("✅ No violations detected.")
+    if violations:
+        st.error(f"❌ Consent Violations: {', '.join(violations)}")
+    if inferred:
+        st.warning(f"⚠️ Sensitive Inferences Detected: {', '.join(inferred)}")
+    if not violations and not inferred:
+        st.success("✅ No issues detected.")
 
-    with st.expander("📜 Ethics Report"):
-        st.markdown(f"""
-        **Website:** {row['Website']}  
-        - **Consent Violations**: {', '.join(consent_violations) if consent_violations else 'None'}  
-        - **Inferred Traits**: {', '.join(inferred_flags) if inferred_flags else 'None'}
-        """)
-
+    st.markdown("### 📜 Ethics Summary")
+    st.code(generate_report("LiveInput", violations, inferred, None))
