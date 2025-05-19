@@ -1,0 +1,4 @@
+Website,User_Consent,Actual_Data_Used
+MindScan AI,"name, email, location","name, email, location, sleep patterns, mental health status"
+WellTrack,"email, mood reports","email, mood reports, behavioral signals, anxiety score"
+CreditMatch,"name, income, credit score","name, income, credit score, ethnicity, purchase behavior"
